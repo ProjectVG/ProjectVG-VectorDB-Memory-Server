@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 import math
 from typing import List
+from src.exception import ModelEncodeError, VectorDBConnectionError, InvalidRequestError
 
 class MemoryService:
     """비즈니스 로직(삽입, 검색, 시간 가중치 등)을 담당하는 서비스 계층."""
@@ -29,12 +30,17 @@ class MemoryService:
 
     def insert(self, req: InsertRequest) -> InsertResponse:
         """텍스트 및 메타데이터를 벡터로 변환 후 DB에 삽입."""
+        if not req.text:
+            raise InvalidRequestError("text 필드는 필수입니다.")
         if req.timestamp:
             insert_time = self.parse_iso_time(req.timestamp)
         else:
             insert_time = datetime.now(timezone.utc)
             req.timestamp = insert_time.isoformat()
-        vector = self.model.encode(req.text).tolist()
+        try:
+            vector = self.model.encode(req.text).tolist()
+        except Exception as e:
+            raise ModelEncodeError(f"임베딩 모델 인코딩 실패: {e}")
         metadata = {
             "text": req.text,
             "timestamp": req.timestamp,
@@ -46,18 +52,29 @@ class MemoryService:
             vector=vector,
             payload=metadata
         )
-        self.repository.upsert(point)
+        try:
+            self.repository.upsert(point)
+        except Exception as e:
+            raise VectorDBConnectionError(f"Qdrant upsert 실패: {e}")
         return InsertResponse(status="ok", timestamp=req.timestamp)
 
     def search(self, req: SearchRequest) -> List[SearchResult]:
         """쿼리와 시간 가중치로 벡터 검색 및 결과 가공."""
+        if not req.query:
+            raise InvalidRequestError("query 필드는 필수입니다.")
         if req.reference_time:
             reference_time = self.parse_iso_time(req.reference_time)
         else:
             reference_time = datetime.now(timezone.utc)
-        query_vector = self.model.encode(req.query).tolist()
+        try:
+            query_vector = self.model.encode(req.query).tolist()
+        except Exception as e:
+            raise ModelEncodeError(f"임베딩 모델 인코딩 실패: {e}")
         search_limit = min(req.top_k * 3, 50)
-        results = self.repository.search(query_vector, search_limit)
+        try:
+            results = self.repository.search(query_vector, search_limit)
+        except Exception as e:
+            raise VectorDBConnectionError(f"Qdrant 검색 실패: {e}")
         weighted_results = []
         for result in results:
             similarity_score = result.score
