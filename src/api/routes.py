@@ -1,18 +1,12 @@
 from fastapi import APIRouter, Depends
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
 from src.config import settings
-from src.repository import VectorDBRepository
-from src.service import MemoryService
-from sentence_transformers import SentenceTransformer
+from src.service.factory import get_memory_service
+from src.service.memory_service import MemoryService
 from typing import List
 from datetime import datetime, timezone
 
 router = APIRouter()
-
-def get_memory_service():
-    vector_db = VectorDBRepository()
-    model = SentenceTransformer(settings.model_name)
-    return MemoryService(model, vector_db)
 
 @router.post("/insert", response_model=InsertResponse)
 def insert(req: InsertRequest, service: MemoryService = Depends(get_memory_service)):
