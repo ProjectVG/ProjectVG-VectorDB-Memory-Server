@@ -20,11 +20,10 @@ class MemoryService:
         except Exception as e:
             raise ModelEncodeError(f"임베딩 모델 인코딩 실패: {e}")
 
-    def _make_metadata(self, req: InsertRequest, insert_time: datetime) -> dict:
+    def _make_metadata(self, req: InsertRequest, timestamp: str) -> dict:
         return {
             "text": req.text,
-            "timestamp": req.timestamp,
-            "insert_time": insert_time.isoformat(),
+            "timestamp": timestamp,
             **req.metadata
         }
 
@@ -38,10 +37,10 @@ class MemoryService:
     def insert(self, req: InsertRequest) -> InsertResponse:
         if not req.text:
             raise InvalidRequestError("text 필드는 필수입니다.")
-        insert_time = parse_iso_time(req.timestamp) if req.timestamp else datetime.now(timezone.utc)
-        req.timestamp = insert_time.isoformat()
+        timestamp = req.timestamp if req.timestamp else datetime.now(timezone.utc).isoformat()
+        req.timestamp = timestamp
         vector = self._encode_text(req.text)
-        metadata = self._make_metadata(req, insert_time)
+        metadata = self._make_metadata(req, timestamp)
         point = self._make_point(vector, metadata)
         try:
             self.repository.upsert(point)
@@ -69,8 +68,8 @@ class MemoryService:
     def _make_search_result(self, result, reference_time, time_weight) -> SearchResult:
         similarity_score = result.score
         payload = result.payload
-        if "insert_time" in payload:
-            insert_time = parse_iso_time(payload["insert_time"])
+        if "timestamp" in payload:
+            insert_time = parse_iso_time(payload["timestamp"])
             t_weight = calculate_time_weight(insert_time, reference_time, time_weight)
         else:
             t_weight = 0.5
@@ -81,5 +80,5 @@ class MemoryService:
             time_weight=t_weight,
             final_score=final_score,
             timestamp=payload.get("timestamp"),
-            metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp", "insert_time"]}
+            metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp"]}
         ) 
