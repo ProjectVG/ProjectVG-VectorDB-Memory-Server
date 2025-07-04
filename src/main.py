@@ -134,4 +134,4 @@ def get_collection_stats():
             "distance": collection_info.config.params.vectors.distance.value
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e)} 
