@@ -4,9 +4,9 @@ from sentence_transformers import SentenceTransformer
 from qdrant_client.models import PointStruct
 import uuid
 from datetime import datetime, timezone
-import math
 from typing import List
 from src.utils import ModelEncodeError, VectorDBConnectionError, InvalidRequestError
+from src.utils.time import parse_iso_time, calculate_time_weight
 
 class MemoryService:
     """비즈니스 로직(삽입, 검색, 시간 가중치 등)을 담당하는 서비스 계층."""
@@ -14,44 +14,35 @@ class MemoryService:
         self.model = model
         self.repository = repository
 
-    def calculate_time_weight(self, insert_time: datetime, reference_time: datetime, time_weight: float) -> float:
-        """시간 가중치 계산."""
-        if time_weight == 0.0:
-            return 1.0
-        time_diff = abs((reference_time - insert_time).total_seconds() / 86400)
-        decay_factor = math.exp(-time_diff * time_weight)
-        return decay_factor
-
-    def parse_iso_time(self, time_str: str) -> datetime:
-        """ISO 형식의 시간 문자열을 datetime 객체로 변환."""
-        if time_str.endswith('Z'):
-            time_str = time_str[:-1] + '+00:00'
-        return datetime.fromisoformat(time_str)
-
-    def insert(self, req: InsertRequest) -> InsertResponse:
-        """텍스트 및 메타데이터를 벡터로 변환 후 DB에 삽입."""
-        if not req.text:
-            raise InvalidRequestError("text 필드는 필수입니다.")
-        if req.timestamp:
-            insert_time = self.parse_iso_time(req.timestamp)
-        else:
-            insert_time = datetime.now(timezone.utc)
-            req.timestamp = insert_time.isoformat()
+    def _encode_text(self, text: str) -> list:
         try:
-            vector = self.model.encode(req.text).tolist()
+            return self.model.encode(text).tolist()
         except Exception as e:
             raise ModelEncodeError(f"임베딩 모델 인코딩 실패: {e}")
-        metadata = {
+
+    def _make_metadata(self, req: InsertRequest, insert_time: datetime) -> dict:
+        return {
             "text": req.text,
             "timestamp": req.timestamp,
             "insert_time": insert_time.isoformat(),
             **req.metadata
         }
-        point = PointStruct(
+
+    def _make_point(self, vector: list, metadata: dict) -> PointStruct:
+        return PointStruct(
             id=str(uuid.uuid4()),
             vector=vector,
             payload=metadata
         )
+
+    def insert(self, req: InsertRequest) -> InsertResponse:
+        if not req.text:
+            raise InvalidRequestError("text 필드는 필수입니다.")
+        insert_time = parse_iso_time(req.timestamp) if req.timestamp else datetime.now(timezone.utc)
+        req.timestamp = insert_time.isoformat()
+        vector = self._encode_text(req.text)
+        metadata = self._make_metadata(req, insert_time)
+        point = self._make_point(vector, metadata)
         try:
             self.repository.upsert(point)
         except Exception as e:
@@ -59,39 +50,36 @@ class MemoryService:
         return InsertResponse(status="ok", timestamp=req.timestamp)
 
     def search(self, req: SearchRequest) -> List[SearchResult]:
-        """쿼리와 시간 가중치로 벡터 검색 및 결과 가공."""
         if not req.query:
             raise InvalidRequestError("query 필드는 필수입니다.")
-        if req.reference_time:
-            reference_time = self.parse_iso_time(req.reference_time)
-        else:
-            reference_time = datetime.now(timezone.utc)
-        try:
-            query_vector = self.model.encode(req.query).tolist()
-        except Exception as e:
-            raise ModelEncodeError(f"임베딩 모델 인코딩 실패: {e}")
+        reference_time = parse_iso_time(req.reference_time) if req.reference_time else datetime.now(timezone.utc)
+        query_vector = self._encode_text(req.query)
         search_limit = min(req.top_k * 3, 50)
         try:
             results = self.repository.search(query_vector, search_limit)
         except Exception as e:
             raise VectorDBConnectionError(f"Qdrant 검색 실패: {e}")
-        weighted_results = []
-        for result in results:
-            similarity_score = result.score
-            payload = result.payload
-            if "insert_time" in payload:
-                insert_time = self.parse_iso_time(payload["insert_time"])
-                time_weight = self.calculate_time_weight(insert_time, reference_time, req.time_weight)
-            else:
-                time_weight = 0.5
-            final_score = similarity_score * time_weight
-            weighted_results.append(SearchResult(
-                text=payload.get("text"),
-                similarity_score=similarity_score,
-                time_weight=time_weight,
-                final_score=final_score,
-                timestamp=payload.get("timestamp"),
-                metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp", "insert_time"]}
-            ))
+        weighted_results = [
+            self._make_search_result(result, reference_time, req.time_weight)
+            for result in results
+        ]
         weighted_results.sort(key=lambda x: x.final_score, reverse=True)
-        return weighted_results[:req.top_k] 
+        return weighted_results[:req.top_k]
+
+    def _make_search_result(self, result, reference_time, time_weight) -> SearchResult:
+        similarity_score = result.score
+        payload = result.payload
+        if "insert_time" in payload:
+            insert_time = parse_iso_time(payload["insert_time"])
+            t_weight = calculate_time_weight(insert_time, reference_time, time_weight)
+        else:
+            t_weight = 0.5
+        final_score = similarity_score * t_weight
+        return SearchResult(
+            text=payload.get("text"),
+            similarity_score=similarity_score,
+            time_weight=t_weight,
+            final_score=final_score,
+            timestamp=payload.get("timestamp"),
+            metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp", "insert_time"]}
+        ) 
