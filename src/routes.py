@@ -1,42 +1,41 @@
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
 from src.config import settings
 from src.repository.vector_db_repository import VectorDBRepository
 from src.service.memory_service import MemoryService
 from sentence_transformers import SentenceTransformer
-from datetime import datetime, timezone
 from typing import List
+from datetime import datetime, timezone
 
-vector_db = VectorDBRepository()
-model = SentenceTransformer(settings.model_name)
-memory_service = MemoryService(model, vector_db)
+router = APIRouter()
 
-app = FastAPI()
+def get_memory_service():
+    vector_db = VectorDBRepository()
+    model = SentenceTransformer(settings.model_name)
+    return MemoryService(model, vector_db)
 
-COLLECTION_NAME = settings.collection_name
-
-@app.post("/insert", response_model=InsertResponse)
-def insert(req: InsertRequest):
+@router.post("/insert", response_model=InsertResponse)
+def insert(req: InsertRequest, service: MemoryService = Depends(get_memory_service)):
     """텍스트 및 메타데이터를 벡터로 변환 후 DB에 삽입"""
-    return memory_service.insert(req)
+    return service.insert(req)
 
-@app.post("/search", response_model=List[SearchResult])
-def search(req: SearchRequest):
+@router.post("/search", response_model=List[SearchResult])
+def search(req: SearchRequest, service: MemoryService = Depends(get_memory_service)):
     """검색 요청 처리"""
-    return memory_service.search(req)
+    return service.search(req)
 
-@app.get("/time")
+@router.get("/time")
 def get_current_time():
     """현재 서버 시간을 ISO 형식으로 반환"""
     return {"current_time": datetime.now(timezone.utc).isoformat()}
 
-@app.get("/stats")
-def get_collection_stats():
+@router.get("/stats")
+def get_collection_stats(service: MemoryService = Depends(get_memory_service)):
     """컬렉션의 통계 정보를 반환"""
     try:
-        collection_info = vector_db.get_collection_stats()
+        collection_info = service.repository.get_collection_stats()
         return {
-            "collection_name": COLLECTION_NAME,
+            "collection_name": settings.collection_name,
             "vector_count": collection_info.points_count,
             "vector_size": collection_info.config.params.vectors.size,
             "distance": collection_info.config.params.vectors.distance.value
