@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from src.models import InsertRequest, SearchRequest
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
@@ -21,17 +21,6 @@ if COLLECTION_NAME not in qdrant.get_collections().collections:
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=384, distance=Distance.COSINE)
     )
-
-class InsertRequest(BaseModel):
-    text: str
-    metadata: dict = {}
-    timestamp: str = None
-
-class SearchRequest(BaseModel):
-    query: str
-    top_k: int = 3
-    time_weight: float = 0.3
-    reference_time: str = None
 
 def calculate_time_weight(insert_time: datetime, reference_time: datetime, time_weight: float) -> float:
     if time_weight == 0.0:
