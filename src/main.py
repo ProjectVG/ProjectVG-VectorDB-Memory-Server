@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.models import InsertRequest, SearchRequest
+from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
@@ -7,6 +7,7 @@ import uuid
 import os
 from datetime import datetime, timezone
 import math
+from typing import List
 
 app = FastAPI()
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
@@ -39,7 +40,7 @@ def parse_iso_time(time_str: str) -> datetime:
         time_str = time_str[:-1] + '+00:00'
     return datetime.fromisoformat(time_str)
 
-@app.post("/insert")
+@app.post("/insert", response_model=InsertResponse)
 def insert(req: InsertRequest):
     if req.timestamp:
         insert_time = parse_iso_time(req.timestamp)
@@ -62,9 +63,9 @@ def insert(req: InsertRequest):
         payload=metadata
     )
     qdrant.upsert(collection_name=COLLECTION_NAME, points=[point])
-    return {"status": "ok", "timestamp": req.timestamp}
+    return InsertResponse(status="ok", timestamp=req.timestamp)
 
-@app.post("/search")
+@app.post("/search", response_model=List[SearchResult])
 def search(req: SearchRequest):
     if req.reference_time:
         reference_time = parse_iso_time(req.reference_time)
@@ -93,16 +94,16 @@ def search(req: SearchRequest):
         
         final_score = similarity_score * time_weight
         
-        weighted_results.append({
-            "text": payload.get("text"),
-            "similarity_score": similarity_score,
-            "time_weight": time_weight,
-            "final_score": final_score,
-            "timestamp": payload.get("timestamp"),
-            "metadata": {k: v for k, v in payload.items() if k not in ["text", "timestamp", "insert_time"]}
-        })
+        weighted_results.append(SearchResult(
+            text=payload.get("text"),
+            similarity_score=similarity_score,
+            time_weight=time_weight,
+            final_score=final_score,
+            timestamp=payload.get("timestamp"),
+            metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp", "insert_time"]}
+        ))
     
-    weighted_results.sort(key=lambda x: x["final_score"], reverse=True)
+    weighted_results.sort(key=lambda x: x.final_score, reverse=True)
     
     return weighted_results[:req.top_k]
 
