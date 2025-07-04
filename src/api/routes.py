@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
 from src.config import settings
-from src.repository.vector_db_repository import VectorDBRepository
-from src.service.memory_service import MemoryService
+from src.repository import VectorDBRepository
+from src.service import MemoryService
 from sentence_transformers import SentenceTransformer
 from typing import List
 from datetime import datetime, timezone

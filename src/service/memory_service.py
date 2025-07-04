@@ -1,4 +1,4 @@
-from src.repository.vector_db_repository import VectorDBRepository
+from src.repository import VectorDBRepository
 from src.models import InsertRequest, InsertResponse, SearchRequest, SearchResult
 from sentence_transformers import SentenceTransformer
 from qdrant_client.models import PointStruct
@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 import math
 from typing import List
-from src.exception import ModelEncodeError, VectorDBConnectionError, InvalidRequestError
+from src.utils import ModelEncodeError, VectorDBConnectionError, InvalidRequestError
 
 class MemoryService:
     """비즈니스 로직(삽입, 검색, 시간 가중치 등)을 담당하는 서비스 계층."""

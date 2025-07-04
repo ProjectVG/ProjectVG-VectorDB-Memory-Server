@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from src.routes import router
-from src.exception import AppException, VectorDBConnectionError, ModelEncodeError, InvalidRequestError
+from src.api import router
+from src.utils import AppException, VectorDBConnectionError, ModelEncodeError, InvalidRequestError
 
 app = FastAPI()
 app.include_router(router)
