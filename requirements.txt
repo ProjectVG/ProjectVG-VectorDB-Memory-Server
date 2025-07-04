@@ -5,3 +5,5 @@ qdrant-client
 pydantic
 pytest
 httpx
+requests
+pydantic-settings
