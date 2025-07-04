@@ -3,3 +3,5 @@ uvicorn
 sentence-transformers
 qdrant-client
 pydantic
+pytest
+httpx

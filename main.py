@@ -47,7 +47,7 @@ def insert(req: InsertRequest):
 @app.post("/search")
 def search(req: SearchRequest):
     query_vector = model.encode(req.query).tolist()
-    results = qdrant.search(
+    results = qdrant.query_points(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
         limit=req.top_k
