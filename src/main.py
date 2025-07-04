@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
-from src.config import settings
+from src.config.settings import Settings
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
@@ -8,6 +8,8 @@ import uuid
 from datetime import datetime, timezone
 import math
 from typing import List
+
+settings = Settings()
 
 app = FastAPI()
 model = SentenceTransformer(settings.model_name)
