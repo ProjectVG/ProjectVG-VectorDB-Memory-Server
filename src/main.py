@@ -1,22 +1,20 @@
 from fastapi import FastAPI
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
+from src.config import settings
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 import uuid
-import os
 from datetime import datetime, timezone
 import math
 from typing import List
 
 app = FastAPI()
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+model = SentenceTransformer(settings.model_name)
 
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
-qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+qdrant = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
 
-COLLECTION_NAME = "my_vectors"
+COLLECTION_NAME = settings.collection_name
 if COLLECTION_NAME not in qdrant.get_collections().collections:
     qdrant.recreate_collection(
         collection_name=COLLECTION_NAME,
@@ -26,10 +24,8 @@ if COLLECTION_NAME not in qdrant.get_collections().collections:
 def calculate_time_weight(insert_time: datetime, reference_time: datetime, time_weight: float) -> float:
     if time_weight == 0.0:
         return 1.0
-    
     time_diff = abs((reference_time - insert_time).total_seconds() / 86400)
     decay_factor = math.exp(-time_diff * time_weight)
-    
     return decay_factor
 
 def get_current_iso_time() -> str:
@@ -47,16 +43,13 @@ def insert(req: InsertRequest):
     else:
         insert_time = datetime.now(timezone.utc)
         req.timestamp = insert_time.isoformat()
-    
     vector = model.encode(req.text).tolist()
-    
     metadata = {
         "text": req.text,
         "timestamp": req.timestamp,
         "insert_time": insert_time.isoformat(),
         **req.metadata
     }
-    
     point = PointStruct(
         id=str(uuid.uuid4()),
         vector=vector,
@@ -71,29 +64,23 @@ def search(req: SearchRequest):
         reference_time = parse_iso_time(req.reference_time)
     else:
         reference_time = datetime.now(timezone.utc)
-    
     query_vector = model.encode(req.query).tolist()
-    
     search_limit = min(req.top_k * 3, 50)
     results = qdrant.search(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
         limit=search_limit
     )
-    
     weighted_results = []
     for result in results:
         similarity_score = result.score
-        
         payload = result.payload
         if "insert_time" in payload:
             insert_time = parse_iso_time(payload["insert_time"])
             time_weight = calculate_time_weight(insert_time, reference_time, req.time_weight)
         else:
             time_weight = 0.5
-        
         final_score = similarity_score * time_weight
-        
         weighted_results.append(SearchResult(
             text=payload.get("text"),
             similarity_score=similarity_score,
@@ -102,9 +89,7 @@ def search(req: SearchRequest):
             timestamp=payload.get("timestamp"),
             metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp", "insert_time"]}
         ))
-    
     weighted_results.sort(key=lambda x: x.final_score, reverse=True)
-    
     return weighted_results[:req.top_k]
 
 @app.get("/time")
