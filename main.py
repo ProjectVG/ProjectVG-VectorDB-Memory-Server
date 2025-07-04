@@ -6,16 +6,16 @@ from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, Fi
 import uuid
 import os
 
-# Init
+# 초기화
 app = FastAPI()
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-# Qdrant connection (using environment variables for Docker)
+# Qdrant 연결 (Docker용 환경변수 사용)
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
-# Ensure collection exists
+# 컬렉션이 존재하는지 확인
 COLLECTION_NAME = "my_vectors"
 if COLLECTION_NAME not in qdrant.get_collections().collections:
     qdrant.recreate_collection(
@@ -23,7 +23,7 @@ if COLLECTION_NAME not in qdrant.get_collections().collections:
         vectors_config=VectorParams(size=384, distance=Distance.COSINE)
     )
 
-# Request Models
+# 요청 모델
 class InsertRequest(BaseModel):
     text: str
     metadata: dict = {}
@@ -32,7 +32,7 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = 3
 
-# Routes
+# 라우트
 @app.post("/insert")
 def insert(req: InsertRequest):
     vector = model.encode(req.text).tolist()
