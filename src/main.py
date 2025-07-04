@@ -1,27 +1,19 @@
 from fastapi import FastAPI
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
-from src.config.settings import Settings
+from src.config import settings
+from src.repository import VectorDBRepository
 from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import PointStruct
 import uuid
 from datetime import datetime, timezone
 import math
 from typing import List
 
-settings = Settings()
-
+vector_db = VectorDBRepository()
 app = FastAPI()
 model = SentenceTransformer(settings.model_name)
 
-qdrant = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
-
 COLLECTION_NAME = settings.collection_name
-if COLLECTION_NAME not in qdrant.get_collections().collections:
-    qdrant.recreate_collection(
-        collection_name=COLLECTION_NAME,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
-    )
 
 def calculate_time_weight(insert_time: datetime, reference_time: datetime, time_weight: float) -> float:
     if time_weight == 0.0:
@@ -57,7 +49,7 @@ def insert(req: InsertRequest):
         vector=vector,
         payload=metadata
     )
-    qdrant.upsert(collection_name=COLLECTION_NAME, points=[point])
+    vector_db.upsert(point)
     return InsertResponse(status="ok", timestamp=req.timestamp)
 
 @app.post("/search", response_model=List[SearchResult])
@@ -68,11 +60,7 @@ def search(req: SearchRequest):
         reference_time = datetime.now(timezone.utc)
     query_vector = model.encode(req.query).tolist()
     search_limit = min(req.top_k * 3, 50)
-    results = qdrant.search(
-        collection_name=COLLECTION_NAME,
-        query_vector=query_vector,
-        limit=search_limit
-    )
+    results = vector_db.search(query_vector, search_limit)
     weighted_results = []
     for result in results:
         similarity_score = result.score
@@ -103,7 +91,7 @@ def get_current_time():
 def get_collection_stats():
     """컬렉션의 통계 정보를 반환"""
     try:
-        collection_info = qdrant.get_collection(COLLECTION_NAME)
+        collection_info = vector_db.get_collection_stats()
         return {
             "collection_name": COLLECTION_NAME,
             "vector_count": collection_info.points_count,
