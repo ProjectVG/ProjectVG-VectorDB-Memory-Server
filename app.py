@@ -1,35 +1,37 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from src.api import router
-from src.utils import AppException, VectorDBConnectionError, ModelEncodeError, InvalidRequestError
+from fastapi import FastAPI
+from src.api.routes import router
+from src.api.system_routes import system_router
+from src.utils.logger import setup_logging, get_logger, get_uvicorn_custom_log
+from src.config import config
+import uvicorn
 
-app = FastAPI()
+# 로깅 설정
+setup_logging()
+
+# FastAPI 앱 생성
+app = FastAPI(
+    title="Memory Server API",
+    description="FastAPI와 Qdrant를 사용한 벡터 기반 메모리 서버",
+    version="1.0.0"
+)
+
+# 라우터 등록
 app.include_router(router)
+app.include_router(system_router)
 
-@app.exception_handler(AppException)
-async def app_exception_handler(request: Request, exc: AppException):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc) or "서버 내부 오류", "type": exc.__class__.__name__}
-    )
+logger = get_logger(__name__)
 
-@app.exception_handler(VectorDBConnectionError)
-async def vectordb_exception_handler(request: Request, exc: VectorDBConnectionError):
-    return JSONResponse(
-        status_code=502,
-        content={"detail": str(exc) or "벡터 DB 연결 오류", "type": "VectorDBConnectionError"}
-    )
-
-@app.exception_handler(ModelEncodeError)
-async def model_encode_exception_handler(request: Request, exc: ModelEncodeError):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc) or "임베딩 모델 인코딩 오류", "type": "ModelEncodeError"}
-    )
-
-@app.exception_handler(InvalidRequestError)
-async def invalid_request_exception_handler(request: Request, exc: InvalidRequestError):
-    return JSONResponse(
-        status_code=400,
-        content={"detail": str(exc) or "잘못된 요청 데이터", "type": "InvalidRequestError"}
+if __name__ == "__main__":
+    # 설정에서 포트 가져오기
+    port = config.get_int("SERVER_PORT", 5601)
+    host = config.get("SERVER_HOST", "0.0.0.0")
+    
+    logger.info(f"서버 시작 중... (Host: {host}, Port: {port})")
+    
+    uvicorn.run(
+        app, 
+        host=host, 
+        port=port,
+        log_config=get_uvicorn_custom_log(),
+        access_log=True
     ) 
