@@ -1,26 +1,23 @@
 from src.repository import VectorDBRepository
 from src.models import InsertRequest, InsertResponse, SearchRequest, SearchResult
-from sentence_transformers import SentenceTransformer
 from qdrant_client.models import PointStruct
 import uuid
 from datetime import datetime, timezone
 from typing import List
-from src.utils import ModelEncodeError, VectorDBConnectionError, InvalidRequestError
+from src.utils import VectorDBConnectionError, InvalidRequestError
 from src.utils.time import parse_iso_time, calculate_time_weight
+from src.service.embedding import EmbeddingService
 
 class MemoryService:
     """비즈니스 로직(삽입, 검색, 시간 가중치 등)을 담당하는 서비스 계층."""
-    def __init__(self, model: SentenceTransformer, repository: VectorDBRepository):
-        """임베딩 모델과 벡터DB 레포지토리 주입."""
-        self.model = model
+    def __init__(self, embedding_service: EmbeddingService, repository: VectorDBRepository):
+        """임베딩 서비스와 벡터DB 레포지토리 주입."""
+        self.embedding_service = embedding_service
         self.repository = repository
 
     def _encode_text(self, text: str) -> list:
         """텍스트를 벡터로 변환 (임베딩)."""
-        try:
-            return self.model.encode(text).tolist()
-        except Exception as e:
-            raise ModelEncodeError(f"임베딩 모델 인코딩 실패: {e}")
+        return self.embedding_service.encode(text)
 
     def _make_metadata(self, req: InsertRequest, timestamp: str) -> dict:
         """입력 요청과 timestamp로 메타데이터 딕셔너리 생성."""
