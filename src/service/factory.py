@@ -12,11 +12,20 @@ _model = None
 _embedding_service = None
 _service = None
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def get_model():
     """SentenceTransformer 모델 싱글톤 인스턴스 반환."""
     global _model
     if _model is None:
+        logger.info(f"모델 로딩 중: {settings.model_name}")
+        logger.info(f"캐시 디렉토리: {settings.model_cache_dir}")
+        logger.info(f"CUDA 사용: {settings.use_cuda}")
+        
         _model = SentenceTransformer(settings.model_name)
+        logger.info("모델 로딩 완료")
     return _model
 
 def create_embedding_service() -> EmbeddingService:
