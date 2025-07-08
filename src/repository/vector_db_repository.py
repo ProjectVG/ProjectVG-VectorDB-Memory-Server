@@ -14,7 +14,7 @@ class VectorDBRepository:
         if self.collection_name not in self.qdrant.get_collections().collections:
             self.qdrant.recreate_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=settings.vector_dim, distance=Distance.COSINE)
             )
 
     def upsert(self, point: PointStruct):
