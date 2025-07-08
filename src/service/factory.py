@@ -1,5 +1,6 @@
 from sentence_transformers import SentenceTransformer
-from src.repository import VectorDBRepository
+from src.repository.base import VectorDBRepository
+from src.repository.vector_db_repository import QdrantVectorDBRepository
 from src.service.memory_service import MemoryService
 from src.service.embedding import (
     EmbeddingService,
@@ -22,7 +23,6 @@ def get_model():
     if _model is None:
         logger.info(f"모델 로딩 중: {settings.model_name}")
         logger.info(f"캐시 디렉토리: {settings.model_cache_dir}")
-        logger.info(f"CUDA 사용: {settings.use_cuda}")
         
         _model = SentenceTransformer(settings.model_name)
         logger.info("모델 로딩 완료")
@@ -56,7 +56,7 @@ def get_memory_service():
     """메모리 서비스 싱글톤 인스턴스 반환."""
     global _service
     if _service is None:
-        repo = VectorDBRepository()
+        repo = QdrantVectorDBRepository()
         embedding_service = get_embedding_service()
         _service = MemoryService(embedding_service, repo)
     return _service 
