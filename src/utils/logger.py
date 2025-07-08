@@ -2,7 +2,7 @@ import logging
 import sys
 import os
 from typing import Optional
-from src.config import settings 
+from src.config.settings import log_config
 
 class LoggerConfig:
     """중앙화된 로거 설정 클래스"""
@@ -59,9 +59,9 @@ def setup_logging(
     log_file: Optional[str] = None
 ):
     """로깅 설정"""
-    # settings에서 로그 레벨 가져오기
+    # log_config에서 로그 레벨 가져오기
     if level is None:
-        log_level_str = getattr(settings, "log_level", None) or os.getenv("LOG_LEVEL", "INFO").upper()
+        log_level_str = getattr(log_config, "log_level", None) or os.getenv("LOG_LEVEL", "INFO").upper()
         level_map = {
             "DEBUG": logging.DEBUG,
             "INFO": logging.INFO,
@@ -71,9 +71,9 @@ def setup_logging(
         }
         level = level_map.get(log_level_str, logging.INFO)
     
-    # settings에서 로그 파일 경로 가져오기
+    # log_config에서 로그 파일 경로 가져오기
     if log_file is None:
-        log_file = getattr(settings, "log_file", None) or os.getenv("LOG_FILE")
+        log_file = getattr(log_config, "log_file", None) or os.getenv("LOG_FILE")
     
     logger_config = LoggerConfig(level, format_string, log_file)
     logger_config.configure()
@@ -98,12 +98,12 @@ def setup_dev_logging():
     )
 
 
-def setup_prod_logging(log_file: str = "logs/app.log"):
+def setup_prod_logging(log_file: str = None):
     """프로덕션 환경용 로깅 설정"""
     setup_logging(
         level=logging.INFO,
         format_string="%(asctime)s [%(levelname)s] (%(name)s:%(funcName)s:%(lineno)d) : %(message)s",
-        log_file=log_file
+        log_file=log_file or log_config.log_file
     )
 
 def get_uvicorn_custom_log():

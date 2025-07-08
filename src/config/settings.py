@@ -2,39 +2,46 @@ import os
 from enum import Enum
 from pydantic_settings import BaseSettings
 
-
-class EmbeddingType(str, Enum):
-    """지원하는 임베딩 서비스 타입."""
-    SENTENCE_TRANSFORMER = "sentence_transformer"
-    OPENAI = "openai"
-
-
-class Settings(BaseSettings):
-    # 서버 설정
+# 서버 설정
+class ServerConfig(BaseSettings):
     server_port: int = int(os.getenv("SERVER_PORT", "5602"))
     server_host: str = os.getenv("SERVER_HOST", "0.0.0.0")
 
-    # Qdrant 설정
+# DB 설정
+class DBConfig(BaseSettings):
     qdrant_host: str = os.getenv("QDRANT_HOST", "localhost")
     qdrant_port: int = int(os.getenv("QDRANT_PORT", "6333"))
-    collection_name: str = "my_vectors"
-    
-    # 벡터 차원 설정
+    collection_name: str = os.getenv("QDRANT_COLLECTION", "my_vectors")
     vector_dim: int = int(os.getenv("VECTOR_DIM", "384"))
-    
-    # 임베딩 서비스 설정
-    embedding_type: EmbeddingType = os.getenv("EMBEDDING_TYPE", "sentence_transformer")
 
-    # SentenceTransformer 설정
-    model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
-    model_cache_dir: str = os.getenv("MODEL_CACHE_DIR", "./model_cache")
-    
-    # OpenAI 설정
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    openai_model_name: str = os.getenv("OPENAI_MODEL_NAME", "text-embedding-3-small")
-
-    # 로깅 설정
+# 로깅 설정
+class LogConfig(BaseSettings):
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     log_file: str = os.getenv("LOG_FILE", "")
 
-settings = Settings() 
+# 임베딩 타입 Enum
+class EmbeddingType(str, Enum):
+    SENTENCE_TRANSFORMER = "sentence_transformer"
+    OPENAI = "openai"
+
+# 임베딩 타입만
+class EmbeddingConfig(BaseSettings):
+    embedding_type: EmbeddingType = os.getenv("EMBEDDING_TYPE", "sentence_transformer")
+
+# SentenceTransformer 임베딩 설정
+class SentenceTransformerEmbeddingConfig(BaseSettings):
+    model_name: str = os.getenv("MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
+    model_cache_dir: str = os.getenv("MODEL_CACHE_DIR", "./model_cache")
+
+# OpenAI 임베딩 설정
+class OpenAIEmbeddingConfig(BaseSettings):
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_model_name: str = os.getenv("OPENAI_MODEL_NAME", "text-embedding-3-small")
+
+# 인스턴스 생성 (통합 진입점)
+server_config = ServerConfig()
+db_config = DBConfig()
+log_config = LogConfig()
+embedding_config = EmbeddingConfig()
+sentence_transformer_embedding_config = SentenceTransformerEmbeddingConfig()
+openai_embedding_config = OpenAIEmbeddingConfig()

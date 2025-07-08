@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from src.api.routes import router
 from src.api.system_routes import system_router
 from src.utils.logger import setup_logging, get_logger, get_uvicorn_custom_log
-from src.config import settings
+from src.config.settings import server_config
 import uvicorn
 
 # 로깅 설정
@@ -22,8 +22,8 @@ app.include_router(system_router)
 logger = get_logger(__name__)
 
 if __name__ == "__main__":
-    port = settings.server_port
-    host = settings.server_host
+    port = server_config.server_port
+    host = server_config.server_host
     
     logger.info(f"서버 시작 중... (Host: {host}, Port: {port})")
     

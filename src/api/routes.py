@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from src.models import InsertRequest, SearchRequest, InsertResponse, SearchResult
-from src.config import settings
+from src.config.settings import db_config
 from src.service.factory import get_memory_service
 from src.service.memory_service import MemoryService
 from typing import List
@@ -29,7 +29,7 @@ def get_collection_stats(service: MemoryService = Depends(get_memory_service)):
     try:
         collection_info = service.repository.get_collection_stats()
         return {
-            "collection_name": settings.collection_name,
+            "collection_name": db_config.collection_name,
             "vector_count": collection_info.points_count,
             "vector_size": collection_info.config.params.vectors.size,
             "distance": collection_info.config.params.vectors.distance.value
