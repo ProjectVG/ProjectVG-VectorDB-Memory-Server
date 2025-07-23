@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  app:
+  projectvg-memory-server:
     build: .
     ports:
       - "5602:5602"
@@ -16,20 +14,20 @@ services:
     volumes:
       - .:/app
     networks:
-      - memmory-network
+      - projectvg-network
 
   qdrant:
     image: qdrant/qdrant:latest
     ports:
       - "6333:6333"
     volumes:
-      - qdrant_data:/qdrant/storage
+      - projectvg_memory_data:/qdrant/storage
     networks:
-      - memmory-network
+      - projectvg-network
 
 volumes:
-  qdrant_data:
+  projectvg_memory_data:
 
 networks:
-  memmory-network:
+  projectvg-network:
     driver: bridge 

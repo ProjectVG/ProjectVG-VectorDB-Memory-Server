@@ -1,12 +1,16 @@
 from typing import List
-from sentence_transformers import SentenceTransformer
 from src.utils import ModelEncodeError
 from .base import EmbeddingService
 
 
 class SentenceTransformerEmbeddingService(EmbeddingService):
 
-    def __init__(self, model: SentenceTransformer):
+    def __init__(self, model):
+        global SentenceTransformer
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            raise ImportError("sentence_transformers 라이브러리가 설치되어 있지 않습니다.")
         self.model = model
     
     def encode(self, text: str) -> List[float]:

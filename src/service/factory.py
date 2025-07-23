@@ -1,4 +1,3 @@
-from sentence_transformers import SentenceTransformer
 from src.repository.base import VectorDBRepository
 from src.repository.vector_db_repository import QdrantVectorDBRepository
 from src.service.memory_service import MemoryService
@@ -23,9 +22,9 @@ def get_model():
     """SentenceTransformer 모델 싱글톤 인스턴스 반환."""
     global _model
     if _model is None:
+        from sentence_transformers import SentenceTransformer
         logger.info(f"모델 로딩 중: {sentence_transformer_embedding_config.model_name}")
         logger.info(f"캐시 디렉토리: {sentence_transformer_embedding_config.model_cache_dir}")
-        
         _model = SentenceTransformer(sentence_transformer_embedding_config.model_name)
         logger.info("모델 로딩 완료")
     return _model
