@@ -38,7 +38,9 @@ class MemoryService:
         return MemoryPoint(vector=vector, metadata=metadata)
 
     def insert(self, req: InsertRequest, collection_name=None) -> InsertResponse:
-        """텍스트 및 메타데이터를 벡터로 변환 후 DB에 삽입."""
+        forbidden_collections = ["admin", "forbidden"]
+        if req.collection in forbidden_collections:
+            raise InvalidRequestError("허용되지 않는 컬렉션 이름입니다.")
         if not req.text:
             raise InvalidRequestError("text 필드는 필수입니다.")
         
@@ -56,7 +58,10 @@ class MemoryService:
         return InsertResponse(status="ok", timestamp=req.timestamp)
 
     def search(self, req: SearchRequest, collection_name=None) -> List[SearchResult]:
-        """쿼리 벡터와 시간 가중치로 유사도 검색 결과 반환."""
+        # 비즈니스 규칙: 금지된 컬렉션 이름 검증
+        forbidden_collections = ["admin", "forbidden"]
+        if req.collection in forbidden_collections:
+            raise InvalidRequestError("허용되지 않는 컬렉션 이름입니다.")
         if not req.query:
             raise InvalidRequestError("query 필드는 필수입니다.")
         
