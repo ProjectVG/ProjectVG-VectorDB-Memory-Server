@@ -6,6 +6,7 @@ from typing import List
 from src.utils import VectorDBConnectionError, InvalidRequestError
 from src.utils.time import parse_iso_time, calculate_time_weight
 from src.service.embedding import EmbeddingService
+from src.config.settings import db_config
 
 
 
@@ -36,7 +37,7 @@ class MemoryService:
         """벡터와 메타데이터로 MemoryPoint 생성."""
         return MemoryPoint(vector=vector, metadata=metadata)
 
-    def insert(self, req: InsertRequest) -> InsertResponse:
+    def insert(self, req: InsertRequest, collection_name=None) -> InsertResponse:
         """텍스트 및 메타데이터를 벡터로 변환 후 DB에 삽입."""
         if not req.text:
             raise InvalidRequestError("text 필드는 필수입니다.")
@@ -49,12 +50,12 @@ class MemoryService:
         point = self._make_point(vector, metadata)
         
         try:
-            self.repository.upsert(point)
+            self.repository.upsert(point, collection_name=collection_name)
         except Exception as e:
             raise VectorDBConnectionError(f"DB upsert 실패: {e}")
         return InsertResponse(status="ok", timestamp=req.timestamp)
 
-    def search(self, req: SearchRequest) -> List[SearchResult]:
+    def search(self, req: SearchRequest, collection_name=None) -> List[SearchResult]:
         """쿼리 벡터와 시간 가중치로 유사도 검색 결과 반환."""
         if not req.query:
             raise InvalidRequestError("query 필드는 필수입니다.")
@@ -64,7 +65,7 @@ class MemoryService:
         search_limit = min(req.top_k * self.SEARCH_CANDIDATE_MULTIPLIER, self.MAX_SEARCH_CANDIDATES)
         
         try:
-            results = self.repository.search(query_vector, search_limit)
+            results = self.repository.search(query_vector, search_limit, collection_name=collection_name)
         except Exception as e:
             raise VectorDBConnectionError(f"DB 검색 실패: {e}")
         
@@ -93,3 +94,10 @@ class MemoryService:
             timestamp=payload.get("timestamp"),
             metadata={k: v for k, v in payload.items() if k not in ["text", "timestamp", "similarity_score"]}
         ) 
+
+    def get_collection_stats(self, collection_name=None):
+        return self.repository.get_collection_stats(collection_name=collection_name)
+
+    def reset_collection(self, collection_name=None, vector_dim=None):
+        """Qdrant 컬렉션을 삭제 후 재생성합니다."""
+        self.repository.reset_collection(collection_name=collection_name, vector_dim=vector_dim) 
