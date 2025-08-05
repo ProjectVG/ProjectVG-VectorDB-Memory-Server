@@ -15,6 +15,7 @@ services:
       - .:/app
     networks:
       - projectvg-network
+    restart: unless-stopped
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -24,6 +25,7 @@ services:
       - projectvg_memory_data:/qdrant/storage
     networks:
       - projectvg-network
+    restart: unless-stopped
 
 volumes:
   projectvg_memory_data:
