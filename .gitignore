@@ -198,6 +198,15 @@ temp/
 *.tmp
 *.temp
 
+# Claude AI related files
+CLAUDE.md
+claude.md
+*CLAUDE.md
+*claude.md
+.claude/
+claude-*
+*claude*
+
 # OS generated files
 .DS_Store
 .DS_Store?
