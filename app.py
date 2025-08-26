@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from src.api.routes import router
 from src.api.system_routes import system_router
+from src.api.memory_routes import router as memory_router
+from src.api.help_routes import router as help_router
 from src.api.exception_handlers import (
     app_exception_handler,
     vectordb_exception_handler,
@@ -18,8 +20,8 @@ setup_logging()
 # FastAPI 앱 생성
 app = FastAPI(
     title="Memory Server API",
-    description="FastAPI와 Qdrant를 사용한 벡터 기반 메모리 서버",
-    version="1.0.0"
+    description="FastAPI와 Qdrant를 사용한 다중 컬렉션 벡터 기반 메모리 서버",
+    version="2.0.0"
 )
 
 # 예외 핸들러 등록
@@ -31,6 +33,8 @@ app.add_exception_handler(InvalidRequestError, invalid_request_exception_handler
 # 라우터 등록
 app.include_router(router)
 app.include_router(system_router)
+app.include_router(memory_router)
+app.include_router(help_router)
 
 logger = get_logger(__name__)
 
