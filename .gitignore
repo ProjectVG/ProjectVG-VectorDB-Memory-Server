@@ -242,4 +242,7 @@ settings.local.py
 *.old 
 /test/data
 
+# Test reports
+test_reports/
+
 docker-compose.yml

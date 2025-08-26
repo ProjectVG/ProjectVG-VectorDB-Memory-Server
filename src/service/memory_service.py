@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from src.repository.memory_repository import MemoryQdrantRepository
 from src.service.memory_classifier import MemoryClassifier
-from src.service.embedding import OpenAIEmbeddingService
+from src.infra.embedding import OpenAIEmbeddingService
 from src.config.settings import MemoryType
 from src.models.memory_point import MemoryPoint
 from datetime import datetime, timezone

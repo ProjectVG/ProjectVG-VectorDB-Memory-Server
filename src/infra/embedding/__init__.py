@@ -1,5 +1,5 @@
 from .base import EmbeddingService
-from .openai_embeder import OpenAIEmbeddingService
+from .openai_embedder import OpenAIEmbeddingService
 
 __all__ = [
     "EmbeddingService",

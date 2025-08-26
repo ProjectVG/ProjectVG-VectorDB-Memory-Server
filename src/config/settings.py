@@ -5,7 +5,6 @@ from typing import Dict, List, Any
 
 # 임베딩 타입 Enum
 class EmbeddingType(str, Enum):
-    SENTENCE_TRANSFORMER = "sentence_transformer"
     OPENAI = "openai"
 
 # 메모리 타입 Enum
@@ -15,7 +14,7 @@ class MemoryType(str, Enum):
 
 # 임베딩 타입만
 class EmbeddingConfig(BaseSettings):
-    embedding_type: EmbeddingType = os.getenv("EMBEDDING_TYPE", "sentence_transformer")
+    embedding_type: EmbeddingType = EmbeddingType.OPENAI
 
 embedding_config = EmbeddingConfig()
 
@@ -24,10 +23,8 @@ class DBConfig(BaseSettings):
     qdrant_host: str = os.getenv("QDRANT_HOST", "localhost")
     qdrant_port: int = int(os.getenv("QDRANT_PORT", "6333"))
     collection_name: str = os.getenv("QDRANT_COLLECTION", "my_vectors")
-    # 벡터 차원 자동 결정
-    vector_dim: int = (
-        1536 if embedding_config.embedding_type == EmbeddingType.OPENAI else 384
-    )
+    # 벡터 차원 자동 결정 (OpenAI만 지원)
+    vector_dim: int = 1536
 
 # 서버 설정
 class ServerConfig(BaseSettings):
@@ -39,38 +36,44 @@ class LogConfig(BaseSettings):
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     log_file: str = os.getenv("LOG_FILE", "")
 
-# SentenceTransformer 임베딩 설정
-class SentenceTransformerEmbeddingConfig(BaseSettings):
-    model_name: str = os.getenv("MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
-    model_cache_dir: str = os.getenv("MODEL_CACHE_DIR", "./model_cache")
 
 # OpenAI 임베딩 설정
 class OpenAIEmbeddingConfig(BaseSettings):
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model_name: str = os.getenv("OPENAI_MODEL_NAME", "text-embedding-3-small")
+    # 벡터 차원 설정 (OpenAI API 지원 차원)
+    vector_dimension: int = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
+    # 임베딩 사용자 식별자 (OpenAI 모니터링용)
+    user_identifier: str = os.getenv("OPENAI_USER_IDENTIFIER", "")
 
 # 컬렉션 설정
 class CollectionConfig(BaseSettings):
-    collections: Dict[str, Dict[str, Any]] = {
-        "episodic": {
-            "vector_dim": 1536,
-            "distance": "COSINE",
-            "metadata_schema": [
-                "user_id", "timestamp", "speaker", "emotion", 
-                "context", "importance_score", "source", "links"
-            ],
-            "index_params": {"m": 16, "ef_construct": 200}
-        },
-        "semantic": {
-            "vector_dim": 768,
-            "distance": "DOT",
-            "metadata_schema": [
-                "user_id", "fact_type", "source", "last_updated", 
-                "confidence_score", "importance_score"
-            ],
-            "index_params": {"m": 32, "ef_construct": 400}
+    # 환경변수로 제어 가능한 컬렉션 차원 설정
+    episodic_vector_dim: int = int(os.getenv("EPISODIC_VECTOR_DIM", "1536"))
+    semantic_vector_dim: int = int(os.getenv("SEMANTIC_VECTOR_DIM", "1536"))
+    
+    @property
+    def collections(self) -> Dict[str, Dict[str, Any]]:
+        return {
+            "episodic": {
+                "vector_dim": self.episodic_vector_dim,
+                "distance": "COSINE",
+                "metadata_schema": [
+                    "user_id", "timestamp", "speaker", "emotion", 
+                    "context", "importance_score", "source", "links"
+                ],
+                "index_params": {"m": 16, "ef_construct": 200}
+            },
+            "semantic": {
+                "vector_dim": self.semantic_vector_dim,
+                "distance": "DOT",
+                "metadata_schema": [
+                    "user_id", "fact_type", "source", "last_updated", 
+                    "confidence_score", "importance_score"
+                ],
+                "index_params": {"m": 32, "ef_construct": 400}
+            }
         }
-    }
     
     default_collection: str = "semantic"
     auto_create_collections: bool = True
@@ -79,6 +82,5 @@ class CollectionConfig(BaseSettings):
 server_config = ServerConfig()
 db_config = DBConfig()
 log_config = LogConfig()
-sentence_transformer_embedding_config = SentenceTransformerEmbeddingConfig()
 openai_embedding_config = OpenAIEmbeddingConfig()
 collection_config = CollectionConfig()

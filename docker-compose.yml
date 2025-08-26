@@ -6,9 +6,19 @@ services:
     depends_on:
       - qdrant
     environment:
+      # 서버 설정
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - SERVER_PORT=5602
+      - SERVER_HOST=0.0.0.0
+      # 로깅 설정
+      - LOG_LEVEL=INFO
+      # OpenAI 설정 (환경변수로 덮어쓰기 가능)
+      - OPENAI_MODEL_NAME=text-embedding-3-small
+      - OPENAI_VECTOR_DIMENSION=1536
+      # 컬렉션 벡터 차원 설정
+      - EPISODIC_VECTOR_DIM=1536
+      - SEMANTIC_VECTOR_DIM=1536
     env_file:
       - .env
     volumes:
