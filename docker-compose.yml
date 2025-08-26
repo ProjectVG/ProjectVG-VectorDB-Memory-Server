@@ -14,8 +14,10 @@ services:
       # 로깅 설정
       - LOG_LEVEL=INFO
       # OpenAI 설정 (환경변수로 덮어쓰기 가능)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # .env 파일에서 필수로 설정
       - OPENAI_MODEL_NAME=text-embedding-3-small
       - OPENAI_VECTOR_DIMENSION=1536
+      - OPENAI_USER_IDENTIFIER=memory_server_v2
       # 컬렉션 벡터 차원 설정
       - EPISODIC_VECTOR_DIM=1536
       - SEMANTIC_VECTOR_DIM=1536

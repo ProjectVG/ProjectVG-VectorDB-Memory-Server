@@ -1,19 +1,18 @@
+"""
+메모리 서비스 - 하위 호환성을 위한 래퍼
+새로운 아키텍처(Facade 패턴)으로 위임하되 기존 API 유지
+"""
 from typing import List, Dict, Any, Optional
-from src.repository.memory_repository import MemoryQdrantRepository
-from src.service.memory_classifier import MemoryClassifier
-from src.infra.embedding import OpenAIEmbeddingService
+from src.service.memory_facade import MemoryFacadeService
 from src.config.settings import MemoryType
 from src.models.memory_point import MemoryPoint
-from datetime import datetime, timezone
-import uuid
 
 class MemoryService:
-    """다중 컬렉션 메모리 서비스"""
+    """다중 컬렉션 메모리 서비스 - 하위 호환성 래퍼"""
     
     def __init__(self):
-        self.repository = MemoryQdrantRepository()
-        self.router = MemoryClassifier()
-        self.embedding_service = OpenAIEmbeddingService()
+        # 새로운 Facade 서비스로 위임
+        self._facade = MemoryFacadeService()
     
     def insert_memory_with_auto_classification(
         self, 
@@ -21,35 +20,8 @@ class MemoryService:
         user_id: str, 
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """자동 분류를 통한 메모리 삽입"""
-        metadata = metadata or {}
-        
-        # 메모리 타입 자동 분류
-        classification = self.router.classify_with_confidence(text, metadata)
-        memory_type = classification["predicted_type"]
-        
-        # 임베딩 생성
-        embedding = self.embedding_service.get_embedding(text)
-        
-        # 메모리 데이터 구성
-        memory_data = {
-            "text": text,
-            "embedding": embedding,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "importance_score": metadata.get("importance_score", 0.5),
-            "source": metadata.get("source", "auto_insert"),
-            **metadata  # 추가 메타데이터
-        }
-        
-        # 메모리 삽입
-        memory_id = self.repository.insert_memory(memory_data, user_id, memory_type)
-        
-        return {
-            "id": memory_id,
-            "memory_type": memory_type,
-            "classification": classification,
-            "explanation": self.router.get_classification_explanation(text, metadata)
-        }
+        """자동 분류를 통한 메모리 삽입 - Facade로 위임"""
+        return self._facade.insert_memory_with_auto_classification(text, user_id, metadata)
     
     def insert_memory_with_manual_type(
         self,
@@ -58,24 +30,9 @@ class MemoryService:
         memory_type: MemoryType,
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
-        """수동 지정된 타입으로 메모리 삽입"""
-        metadata = metadata or {}
-        
-        # 임베딩 생성
-        embedding = self.embedding_service.get_embedding(text)
-        
-        # 메모리 데이터 구성
-        memory_data = {
-            "text": text,
-            "embedding": embedding,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "importance_score": metadata.get("importance_score", 0.5),
-            "source": metadata.get("source", "manual_insert"),
-            **metadata
-        }
-        
-        # 메모리 삽입
-        return self.repository.insert_memory(memory_data, user_id, memory_type)
+        """수동 지정된 타입으로 메모리 삽입 - Facade로 위임"""
+        result = self._facade.insert_memory_with_manual_type(text, user_id, memory_type, metadata)
+        return result["id"]  # 하위 호환성을 위해 ID만 반환
     
     def search_memory_single_collection(
         self,
@@ -85,14 +42,8 @@ class MemoryService:
         limit: int = 10,
         filters: Optional[Dict[str, Any]] = None
     ) -> List[MemoryPoint]:
-        """단일 컬렉션에서 메모리 검색"""
-        # 쿼리 임베딩 생성
-        query_vector = self.embedding_service.get_embedding(query)
-        
-        # 검색 실행
-        return self.repository.search_memory(
-            query_vector, user_id, memory_type, limit, filters
-        )
+        """단일 컬렉션에서 메모리 검색 - Facade로 위임"""
+        return self._facade.search_memory_single_collection(query, user_id, memory_type, limit, filters)
     
     def search_memory_multi_collection(
         self,
@@ -102,37 +53,13 @@ class MemoryService:
         limit: int = 10,
         weights: Optional[Dict[MemoryType, float]] = None
     ) -> List[MemoryPoint]:
-        """다중 컬렉션 통합 검색"""
-        if collections is None:
-            collections = [MemoryType.EPISODIC, MemoryType.SEMANTIC]
-        
-        # 쿼리 임베딩 생성
-        query_vector = self.embedding_service.get_embedding(query)
-        
-        # 다중 컬렉션 검색
-        return self.repository.multi_collection_search(
-            query_vector, user_id, collections, limit, weights
-        )
+        """다중 컬렉션 통합 검색 - Facade로 위임"""
+        return self._facade.search_memory_multi_collection(query, user_id, collections, limit, weights)
     
     def get_intelligent_search_weights(self, query: str) -> Dict[MemoryType, float]:
-        """쿼리 분석을 통한 지능형 가중치 결정"""
-        # 쿼리 분류를 통해 가중치 결정
-        classification = self.router.classify_with_confidence(query, {})
-        
-        if classification["predicted_type"] == MemoryType.EPISODIC:
-            # Episodic 경향의 쿼리면 Episodic에 높은 가중치
-            confidence = classification["confidence"]
-            return {
-                MemoryType.EPISODIC: 1.0 + confidence * 0.5,
-                MemoryType.SEMANTIC: 1.0 - confidence * 0.3
-            }
-        else:
-            # Semantic 경향의 쿼리면 Semantic에 높은 가중치
-            confidence = classification["confidence"]
-            return {
-                MemoryType.EPISODIC: 1.0 - confidence * 0.3,
-                MemoryType.SEMANTIC: 1.0 + confidence * 0.5
-            }
+        """쿼리 분석을 통한 지능형 가중치 결정 - Facade로 위임"""
+        classification = self._facade.classify_memory(query)
+        return self._facade._calculate_search_weights(classification)
     
     def search_with_intelligent_weights(
         self,
@@ -140,46 +67,21 @@ class MemoryService:
         user_id: str,
         limit: int = 10
     ) -> Dict[str, Any]:
-        """지능형 가중치를 사용한 검색"""
-        # 자동 가중치 계산
-        weights = self.get_intelligent_search_weights(query)
-        
-        # 검색 실행
-        results = self.search_memory_multi_collection(
-            query, user_id, [MemoryType.EPISODIC, MemoryType.SEMANTIC], limit, weights
-        )
-        
-        return {
-            "results": results,
-            "applied_weights": weights,
-            "explanation": f"쿼리 '{query}' 분석 결과 적용된 가중치"
-        }
+        """지능형 가중치를 사용한 검색 - Facade로 위임"""
+        return self._facade.search_with_intelligent_weights(query, user_id, limit)
     
     def get_user_memory_summary(self, user_id: str) -> Dict[str, Any]:
-        """사용자 메모리 요약 정보"""
-        episodic_count = self.repository.get_user_memory_count(user_id, MemoryType.EPISODIC)
-        semantic_count = self.repository.get_user_memory_count(user_id, MemoryType.SEMANTIC)
-        
-        return {
-            "user_id": user_id,
-            "total_memories": episodic_count + semantic_count,
-            "episodic_count": episodic_count,
-            "semantic_count": semantic_count,
-            "memory_distribution": {
-                "episodic_ratio": episodic_count / max(episodic_count + semantic_count, 1),
-                "semantic_ratio": semantic_count / max(episodic_count + semantic_count, 1)
-            }
-        }
+        """사용자 메모리 요약 정보 - Facade로 위임"""
+        return self._facade.get_user_memory_summary(user_id)
     
     def classify_existing_memory(self, memory_id: str, text: str) -> Dict[str, Any]:
-        """기존 메모리의 분류 재검토"""
-        classification = self.router.classify_with_confidence(text, {})
-        explanation = self.router.get_classification_explanation(text, {})
+        """기존 메모리의 분류 재검토 - Facade로 위임"""
+        classification = self._facade.classify_memory(text, {})
         
         return {
             "memory_id": memory_id,
             "current_classification": classification,
-            "explanation": explanation,
+            "explanation": classification["explanation"],
             "should_reclassify": classification["confidence"] > 0.7
         }
     
@@ -189,7 +91,7 @@ class MemoryService:
         memory_type: MemoryType,
         confidence_threshold: float = 0.8
     ) -> Dict[str, Any]:
-        """배치 재분류 (마이그레이션용)"""
+        """배치 재분류 (마이그레이션용) - 임시 구현"""
         # TODO: 실제 구현에서는 메모리를 조회하고 재분류하는 로직 필요
         return {
             "user_id": user_id,
@@ -203,69 +105,13 @@ class MemoryService:
         user_id: str, 
         memory_type: Optional[MemoryType] = None
     ) -> Dict[str, Any]:
-        """사용자 메모리 삭제"""
-        try:
-            # 삭제 전 카운트 조회
-            before_counts = self.get_user_memory_summary(user_id)
-            
-            # 삭제 실행
-            self.repository.delete_user_memories(user_id, memory_type)
-            
-            # 삭제 후 카운트 조회
-            after_counts = self.get_user_memory_summary(user_id)
-            
-            deleted_count = before_counts["total_memories"] - after_counts["total_memories"]
-            
-            return {
-                "user_id": user_id,
-                "deleted_memory_type": memory_type.value if memory_type else "all",
-                "deleted_count": deleted_count,
-                "remaining_count": after_counts["total_memories"]
-            }
-            
-        except Exception as e:
-            return {
-                "user_id": user_id,
-                "error": str(e),
-                "success": False
-            }
+        """사용자 메모리 삭제 - Facade로 위임"""
+        return self._facade.delete_user_memories(user_id, memory_type)
     
     def reset_collection(self, memory_type: MemoryType) -> Dict[str, Any]:
-        """컬렉션 초기화"""
-        try:
-            collection_name = memory_type.value
-            self.repository.reset_collection(collection_name)
-            
-            return {
-                "collection_name": collection_name,
-                "memory_type": memory_type.value,
-                "reset_success": True,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-            
-        except Exception as e:
-            return {
-                "collection_name": memory_type.value,
-                "error": str(e),
-                "reset_success": False
-            }
+        """컬렉션 초기화 - Facade로 위임"""
+        return self._facade.reset_collection(memory_type)
     
     def get_collection_stats(self, memory_type: MemoryType) -> Dict[str, Any]:
-        """컬렉션 통계 정보"""
-        try:
-            collection_name = memory_type.value
-            stats = self.repository.get_collection_stats(collection_name)
-            
-            return {
-                "collection_name": collection_name,
-                "memory_type": memory_type.value,
-                "total_points": stats.points_count,
-                "vector_size": stats.config.params.vectors.size,
-                "distance_function": stats.config.params.vectors.distance.value
-            }
-            
-        except Exception as e:
-            return {
-                "collection_name": memory_type.value,
-                "error": str(e)
-            }
+        """컬렉션 통계 정보 - Facade로 위임"""
+        return self._facade.get_collection_stats(memory_type)
