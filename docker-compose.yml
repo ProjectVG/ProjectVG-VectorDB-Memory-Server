@@ -13,6 +13,7 @@ services:
       - SERVER_HOST=0.0.0.0
       # 로깅 설정
       - LOG_LEVEL=INFO
+      - LOG_FILE=
       # OpenAI 설정 (환경변수로 덮어쓰기 가능)
       - OPENAI_API_KEY=${OPENAI_API_KEY}  # .env 파일에서 필수로 설정
       - OPENAI_MODEL_NAME=text-embedding-3-small
