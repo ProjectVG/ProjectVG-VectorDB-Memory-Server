@@ -1,4 +1,8 @@
+from .embedding import EmbeddingService, OpenAIEmbeddingService
+from .memory_classifier import MemoryClassifier
 from .memory_service import MemoryService
-from .embedding import EmbeddingService, SentenceTransformerEmbeddingService, OpenAIEmbeddingService
 
-__all__ = ["MemoryService", "EmbeddingService", "SentenceTransformerEmbeddingService", "OpenAIEmbeddingService"]
+__all__ = [
+    "EmbeddingService", "OpenAIEmbeddingService",
+    "MemoryClassifier", "MemoryService"
+]

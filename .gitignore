@@ -241,3 +241,5 @@ settings.local.py
 *.backup
 *.old 
 /test/data
+
+docker-compose.yml

@@ -1,7 +1,11 @@
-from .request import InsertRequest, SearchRequest
-from .response import InsertResponse, SearchResult
+from .memory_models import (
+    MemoryInsertRequest, MemoryInsertResponse, MemorySearchResult,
+    MultiCollectionSearchResponse, ClassificationResult, 
+    UserMemoryStats, SystemStats
+)
 
 __all__ = [
-    "InsertRequest", "SearchRequest",
-    "InsertResponse", "SearchResult"
+    "MemoryInsertRequest", "MemoryInsertResponse", "MemorySearchResult",
+    "MultiCollectionSearchResponse", "ClassificationResult", 
+    "UserMemoryStats", "SystemStats"
 ]

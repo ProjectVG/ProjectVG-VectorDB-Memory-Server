@@ -5,13 +5,13 @@ from datetime import datetime, timezone
 
 from src.config.settings import MemoryType
 from src.models.memory_models import (
-    MemoryInsertRequest, MemorySearchRequest, MultiCollectionSearchRequest,
-    MemoryInsertResponse, MemorySearchResult, MultiCollectionSearchResponse,
-    ClassificationResult, UserMemoryStats, SystemStats
+    MemoryInsertRequest, MemoryInsertResponse, MemorySearchResult, 
+    MultiCollectionSearchResponse, ClassificationResult, UserMemoryStats, SystemStats
 )
 from src.repository.memory_repository import MemoryQdrantRepository
 from src.service.memory_classifier import MemoryClassifier
-from src.service.factory import get_embedding_service
+from src.service.embedding import EmbeddingService
+from src.config.settings import EmbeddingType, embedding_config, sentence_transformer_embedding_config, openai_embedding_config
 
 router = APIRouter(
     prefix="/api", 
@@ -30,6 +30,22 @@ def get_memory_repository():
 def get_memory_classifier():
     """메모리 분류기 의존성"""
     return MemoryClassifier()
+
+def get_embedding_service() -> EmbeddingService:
+    """임베딩 서비스 의존성"""
+    if embedding_config.embedding_type == EmbeddingType.SENTENCE_TRANSFORMER:
+        from sentence_transformers import SentenceTransformer
+        from src.service.embedding import SentenceTransformerEmbeddingService
+        model = SentenceTransformer(sentence_transformer_embedding_config.model_name)
+        return SentenceTransformerEmbeddingService(model)
+    elif embedding_config.embedding_type == EmbeddingType.OPENAI:
+        from src.service.embedding import OpenAIEmbeddingService
+        return OpenAIEmbeddingService(
+            api_key=openai_embedding_config.openai_api_key,
+            model_name=openai_embedding_config.openai_model_name
+        )
+    else:
+        raise ValueError(f"지원하지 않는 임베딩 타입입니다: {embedding_config.embedding_type}")
 
 @router.post(
     "/memory/{memory_type}", 
@@ -356,7 +372,7 @@ async def multi_collection_search(
 async def classify_text(
     text: str,
     context: Optional[Dict[str, Any]] = None,
-    router_service: IntelligentMemoryRouter = Depends(get_memory_router)
+    classifier: MemoryClassifier = Depends(get_memory_classifier)
 ):
     """텍스트 메모리 타입 분류"""
     try:
@@ -378,7 +394,7 @@ async def classify_text(
 @router.get("/user/{user_id}/stats", response_model=UserMemoryStats)
 async def get_user_memory_stats(
     user_id: str,
-    repository: MultiCollectionQdrantRepository = Depends(get_multi_collection_repository)
+    repository: MemoryQdrantRepository = Depends(get_memory_repository)
 ):
     """사용자 메모리 통계 조회"""
     try:
@@ -401,7 +417,7 @@ async def get_user_memory_stats(
 async def delete_user_memories(
     user_id: str,
     memory_type: Optional[MemoryType] = Query(default=None),
-    repository: MultiCollectionQdrantRepository = Depends(get_multi_collection_repository)
+    repository: MemoryQdrantRepository = Depends(get_memory_repository)
 ):
     """사용자 메모리 삭제"""
     try:
@@ -419,7 +435,7 @@ async def delete_user_memories(
 @router.post("/collections/{collection_name}/reset")
 async def reset_collection(
     collection_name: str,
-    repository: MultiCollectionQdrantRepository = Depends(get_multi_collection_repository)
+    repository: MemoryQdrantRepository = Depends(get_memory_repository)
 ):
     """컬렉션 초기화"""
     try:
@@ -435,7 +451,7 @@ async def reset_collection(
 
 @router.get("/system/stats", response_model=SystemStats)
 async def get_system_stats(
-    repository: MultiCollectionQdrantRepository = Depends(get_multi_collection_repository)
+    repository: MemoryQdrantRepository = Depends(get_memory_repository)
 ):
     """시스템 전체 통계"""
     try:

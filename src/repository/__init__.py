@@ -1,3 +1,3 @@
-from .vector_db_repository import VectorDBRepository
+from .memory_repository import MemoryQdrantRepository
 
-__all__ = ["VectorDBRepository"]
+__all__ = ["MemoryQdrantRepository"]

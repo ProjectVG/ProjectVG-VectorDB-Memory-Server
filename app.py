@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from src.api.routes import router
 from src.api.system_routes import system_router
 from src.api.memory_routes import router as memory_router
 from src.api.help_routes import router as help_router
@@ -31,7 +30,6 @@ app.add_exception_handler(ModelEncodeError, model_encode_exception_handler)
 app.add_exception_handler(InvalidRequestError, invalid_request_exception_handler)
 
 # 라우터 등록
-app.include_router(router)
 app.include_router(system_router)
 app.include_router(memory_router)
 app.include_router(help_router)
