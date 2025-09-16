@@ -171,11 +171,17 @@ curl "http://localhost:5602/api/memory/semantic/search?query=생일&limit=3" \
 - `limit`: 총 결과 수 (기본값: 10)
 - `episodic_weight`: Episodic 가중치 (기본값: 1.0)
 - `semantic_weight`: Semantic 가중치 (기본값: 1.0)
+- `use_intelligent_weights`: 지능형 가중치 사용 (기본값: false)
 - `similarity_threshold`: 유사도 임계값 (기본값: 0.0)
 
 **예제:**
 ```bash
+# 수동 가중치 설정
 curl "http://localhost:5602/api/memory/search/multi?query=커피&limit=10&episodic_weight=1.2&semantic_weight=0.8" \
+  -H "X-User-ID: user123"
+
+# 지능형 가중치 사용
+curl "http://localhost:5602/api/memory/search/multi?query=커피&limit=10&use_intelligent_weights=true" \
   -H "X-User-ID: user123"
 ```
 
@@ -209,14 +215,15 @@ curl "http://localhost:5602/api/memory/search/multi?query=커피&limit=10&episod
   "applied_weights": {
     "episodic": 1.2,
     "semantic": 0.8
-  }
+  },
+  "explanation": "수동 가중치 적용"
 }
 ```
 
 ### 🧠 분류 및 분석
 
 #### 텍스트 분류
-**POST** `/api/classify`
+**POST** `/api/classify/`
 
 텍스트가 어떤 메모리 타입인지 미리 확인합니다.
 
@@ -226,7 +233,9 @@ curl "http://localhost:5602/api/memory/search/multi?query=커피&limit=10&episod
 
 **예제:**
 ```bash
-curl -X POST "http://localhost:5602/api/classify?text=오늘 기분이 좋아"
+curl -X POST "http://localhost:5602/api/classify/" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "오늘 기분이 좋아"}'
 ```
 
 **응답 예제:**
@@ -247,16 +256,149 @@ curl -X POST "http://localhost:5602/api/classify?text=오늘 기분이 좋아"
 }
 ```
 
+#### 배치 분류
+**POST** `/api/classify/batch`
+
+여러 텍스트를 한 번에 분류합니다.
+
+**요청 예제:**
+```bash
+curl -X POST "http://localhost:5602/api/classify/batch" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "texts": ["오늘 기분이 좋아", "파리는 프랑스의 수도다", "어제 친구를 만났어"],
+    "contexts": [null, null, null]
+  }'
+```
+
+**응답 예제:**
+```json
+{
+  "classifications": [
+    {
+      "text": "오늘 기분이 좋아",
+      "predicted_type": "episodic",
+      "confidence": 0.85,
+      "explanation": "감정과 시간 표현 포함",
+      "features": {"temporal_matches": 1, "emotional_matches": 1}
+    }
+  ],
+  "statistics": {
+    "total_texts": 3,
+    "episodic_count": 2,
+    "semantic_count": 1,
+    "avg_confidence": 0.82
+  }
+}
+```
+
+#### 분류 신뢰도 임계값 조회
+**GET** `/api/classify/confidence-threshold`
+
+현재 설정된 분류 신뢰도 임계값을 조회합니다.
+
+**예제:**
+```bash
+curl "http://localhost:5602/api/classify/confidence-threshold"
+```
+
+**응답 예제:**
+```json
+{
+  "confidence_threshold": 0.7,
+  "description": "신뢰도 0.7 이상에서 자동 분류를 신뢰할 수 있습니다.",
+  "recommendation": "신뢰도가 0.7 미만인 경우 수동 분류를 고려하세요."
+}
+```
+
+#### 분류 패턴 분석
+**POST** `/api/classify/analyze-patterns`
+
+텍스트 패턴을 분석하고 분류 특성을 추출합니다.
+
+**요청 예제:**
+```bash
+curl -X POST "http://localhost:5602/api/classify/analyze-patterns" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "texts": ["오늘 학교에 갔어", "수학은 어려운 과목이다", "친구와 점심을 먹었다"]
+  }'
+```
+
+#### 분류 검증
+**POST** `/api/classify/validate-classification`
+
+분류 결과를 검증하고 개선 제안을 받습니다.
+
+**요청 예제:**
+```bash
+curl -X POST "http://localhost:5602/api/classify/validate-classification" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "오늘 기분이 좋아",
+    "expected_type": "episodic"
+  }'
+```
+
+### 👤 사용자 관리
+
+#### 사용자 프로필 조회
+**GET** `/api/users/{user_id}/profile`
+
+사용자 프로필 정보를 조회합니다 (Semantic 메모리에서 추출).
+
+**예제:**
+```bash
+curl "http://localhost:5602/api/users/user123/profile"
+```
+
+**응답 예제:**
+```json
+{
+  "user_id": "user123",
+  "profile": {
+    "birthday": "3월 15일에 태어났다",
+    "occupation": "소프트웨어 개발자로 일한다",
+    "interests": "독서와 영화감상을 좋아한다"
+  },
+  "profile_completeness": 0.75,
+  "last_updated": null
+}
+```
+
+#### 사용자 분류 패턴 분석
+**GET** `/api/users/{user_id}/classification-analysis`
+
+사용자의 메모리 분류 패턴을 분석합니다.
+
+**예제:**
+```bash
+curl "http://localhost:5602/api/users/user123/classification-analysis"
+```
+
+**응답 예제:**
+```json
+{
+  "user_id": "user123",
+  "total_memories": 150,
+  "episodic_ratio": 0.667,
+  "semantic_ratio": 0.333,
+  "analysis": "주로 개인 경험과 대화 중심의 기억을 저장합니다.",
+  "recommendations": ["지식이나 사실 정보도 함께 저장하면 더 균형잡힌 메모리 관리가 가능합니다."],
+  "memory_type_preference": "episodic"
+}
+```
+
 ### 📊 통계 및 관리
 
 #### 1. 사용자 메모리 통계
-**GET** `/api/user/{user_id}/stats`
+**GET** `/api/users/{user_id}/stats`
 
 사용자의 메모리 사용 현황을 확인합니다.
 
 **예제:**
 ```bash
-curl http://localhost:5602/api/user/user123/stats
+curl http://localhost:5602/api/users/user123/stats
 ```
 
 **응답 예제:**
@@ -284,7 +426,7 @@ curl http://localhost:5602/api/system/stats
 ```
 
 #### 3. 사용자 메모리 삭제
-**DELETE** `/api/user/{user_id}/memories`
+**DELETE** `/api/users/{user_id}/memories`
 
 사용자의 메모리를 삭제합니다.
 
@@ -294,10 +436,10 @@ curl http://localhost:5602/api/system/stats
 **예제:**
 ```bash
 # 특정 타입만 삭제
-curl -X DELETE "http://localhost:5602/api/user/user123/memories?memory_type=episodic"
+curl -X DELETE "http://localhost:5602/api/users/user123/memories?memory_type=episodic"
 
 # 전체 삭제
-curl -X DELETE "http://localhost:5602/api/user/user123/memories"
+curl -X DELETE "http://localhost:5602/api/users/user123/memories"
 ```
 
 #### 4. 컬렉션 초기화
