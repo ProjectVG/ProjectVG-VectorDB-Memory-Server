@@ -28,7 +28,7 @@ class DBConfig(BaseSettings):
 
 # 서버 설정
 class ServerConfig(BaseSettings):
-    server_port: int = int(os.getenv("SERVER_PORT", "5602"))
+    server_port: int = int(os.getenv("SERVER_PORT", "8080"))
     server_host: str = os.getenv("SERVER_HOST", "0.0.0.0")
 
 # 로깅 설정
